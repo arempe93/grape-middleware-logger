@@ -57,8 +57,8 @@ class Grape::Middleware::Logger < Grape::Middleware::Globals
     grape_error = catch(:error) { @app_response = @app.call(@env) }
 
     if grape_error
-      after_failure(status: error[:status], response: error[:message])
-      throw(:error, error)
+      after_failure(status: grape_error[:status], response: grape_error[:message])
+      throw(:error, grape_error)
     end
 
     @app_response.tap { |(status, _, _)| after(status) }
@@ -85,7 +85,7 @@ class Grape::Middleware::Logger < Grape::Middleware::Globals
   private
 
   def after_failure(status:, response:)
-    logger.info "  Failing with #{status} (#{response.fetch(:message, '<NO MESSAGE>')})" 
+    logger.info "  Failing with #{status} (#{response.fetch(:message, response || '<NO MESSAGE>')})" 
     after(status)
   end
 
