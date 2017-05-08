@@ -1,8 +1,11 @@
 require 'logger'
 require 'grape'
 
+require_relative 'logger/timings'
+
 class Grape::Middleware::Logger < Grape::Middleware::Globals
   BACKSLASH = '/'.freeze
+  DEFAULT_FILTER = Class.new { def filter(h); h; end }.freeze
 
   attr_reader :logger
 
@@ -16,108 +19,99 @@ class Grape::Middleware::Logger < Grape::Middleware::Globals
     end
   end
 
+  ActiveSupport::Notifications.subscribe('sql.active_record') do |*args|
+    event = ActiveSupport::Notifications::Event.new(*args)
+    append_db_runtime(event)
+  end if defined?(ActiveRecord)
+
   def initialize(_, options = {})
     super
-    @options[:filter] ||= self.class.filter
+    @options[:filter] ||= self.class.filter || DEFAULT_FILTER
     @options[:headers] ||= self.class.headers
     @logger = options[:logger] || self.class.logger || self.class.default_logger
   end
 
-  def before
-    start_time
-    # sets env['grape.*']
-    super
-    logger.info ''
-    logger.info %Q(Started %s "%s" at %s) % [
-      env[Grape::Env::GRAPE_REQUEST].request_method,
-      env[Grape::Env::GRAPE_REQUEST].path,
-      start_time.to_s
-    ]
-    logger.info %Q(Processing by #{processed_by})
-    logger.info %Q(  Parameters: #{parameters})
-    logger.info %Q(  Headers: #{headers}) if @options[:headers]
-  end
-
-  # @note Error and exception handling are required for the +after+ hooks
-  #   Exceptions are logged as a 500 status and re-raised
-  #   Other "errors" are caught, logged and re-thrown
   def call!(env)
     @env = env
+
     before
-    error = catch(:error) do
-      begin
-        @app_response = @app.call(@env)
-      rescue => e
-        after_exception(e)
-        raise e
-      end
-      nil
-    end
-    if error
-      after_failure(error)
+    
+    grape_error = catch(:error) { @app_response = @app.call(@env) }
+
+    if grape_error
+      after_failure(status: error[:status], response: error[:message])
       throw(:error, error)
-    else
-      status, _, _ = *@app_response
-      after(status)
     end
-    @app_response
+
+    @app_response.tap { |(status, _, _)| after(status) }
+  end
+
+  def before
+    start_timings
+
+    super
+    logger.info ''
+    logger.info format("Started %<method>s '%<path>s' at %<time>s", method: env[Grape::Env::GRAPE_REQUEST].request_method,
+                                                                    path: env[Grape::Env::GRAPE_REQUEST].path,
+                                                                    time: @runtime_start.to_s)
+    logger.info "Processing by #{processed_by}"
+    logger.info "  Parameters: #{parameters}"
+    logger.info "  Headers: #{headers}" if @options[:headers]
   end
 
   def after(status)
-    logger.info "Completed #{status} in #{((Time.now - start_time) * 1000).round(2)}ms"
+    logger.info "Completed #{status}: total=#{total_runtime}ms - db=#{@db_runtime}ms"
     logger.info ''
   end
 
-  #
-  # Helpers
-  #
+  private
 
-  def after_exception(e)
-    logger.info %Q(  #{e.class.name}: #{e.message})
-    after(500)
-  end
-
-  def after_failure(error)
-    logger.info %Q(  Error: #{error[:message]}) if error[:message]
-    after(error[:status])
+  def after_failure(status:, response:)
+    logger.info "  Failing with #{status} (#{response.fetch(:message, '<NO MESSAGE>')})" 
+    after(status)
   end
 
   def parameters
     request_params = env[Grape::Env::GRAPE_REQUEST_PARAMS].to_hash
     request_params.merge! env[Grape::Env::RACK_REQUEST_FORM_HASH] if env[Grape::Env::RACK_REQUEST_FORM_HASH]
     request_params.merge! env['action_dispatch.request.request_parameters'] if env['action_dispatch.request.request_parameters']
-    if @options[:filter]
-      @options[:filter].filter(request_params)
-    else
-      request_params
-    end
+    
+    @options[:filter].filter(request_params)
   end
 
   def headers
     request_headers = env[Grape::Env::GRAPE_REQUEST_HEADERS].to_hash
     return Hash[request_headers.sort] if @options[:headers] == :all
 
-    headers_needed = Array(@options[:headers])
-    result = {}
-    headers_needed.each do |need|
-      result.merge!(request_headers.select { |key, value| need.to_s.casecmp(key).zero? })
+    Array(@options[:headers]).each_with_object({}) do |name, acc|
+      acc.merge!(request_headers.select { |key, value| name.to_s.casecmp(key).zero? })
     end
-    Hash[result.sort]
   end
 
-  def start_time
-    @start_time ||= Time.now
+  def start_timings
+    @runtime_start = Time.now
+    @db_runtime = 0
+  end
+
+  def append_db_runtime(event)
+    @db_runtime += event.duration
+  end
+
+  def total_runtime
+    ((Time.now - start_time) * 1_000).round(2)
+  end
+
+  def total_db_runtime
+    @db_runtime.round(2)
   end
 
   def processed_by
     endpoint = env[Grape::Env::API_ENDPOINT]
+    
     result = []
-    if endpoint.namespace == BACKSLASH
-      result << ''
-    else
-      result << endpoint.namespace
-    end
-    result.concat endpoint.options[:path].map { |path| path.to_s.sub(BACKSLASH, '') }
+    result << (endpoint.namespace == BACKSLASH ? '' : endpoint.namespace)
+
+    result.concat(endpoint.options[:path].map { |path| path.to_s.sub(BACKSLASH, '') })
     endpoint.options[:for].to_s << result.join(BACKSLASH)
   end
 end
