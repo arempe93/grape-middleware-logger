@@ -1,8 +1,6 @@
 require 'logger'
 require 'grape'
 
-require_relative 'logger/timings'
-
 class Grape::Middleware::Logger < Grape::Middleware::Globals
   BACKSLASH = '/'.freeze
   DEFAULT_FILTER = Class.new { def filter(h); h; end }.freeze
