@@ -56,6 +56,8 @@ class Grape::Middleware::Logger < Grape::Middleware::Globals
     
     grape_error = catch(:error) { @app_response = @app.call(@env) }
 
+    logger.info grape_error
+
     if grape_error
       after_failure(status: grape_error[:status], response: grape_error[:message])
       throw(:error, grape_error)
