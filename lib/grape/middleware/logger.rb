@@ -72,22 +72,22 @@ class Grape::Middleware::Logger < Grape::Middleware::Globals
     super
     logger.info ''
     logger.info format("Started %<method>s '%<path>s' at %<time>s", method: Colors.green(env[Grape::Env::GRAPE_REQUEST].request_method),
-                                                                    path: env[Grape::Env::GRAPE_REQUEST].path,
-                                                                    time: @runtime_start.to_s)
-    logger.info "Processing by #{processed_by}"
-    logger.info "  Parameters: #{parameters}"
-    logger.info "  Headers: #{headers}" if @options[:headers]
+                                                                    path: Colors.blue(env[Grape::Env::GRAPE_REQUEST].path),
+                                                                    time: Colors.cyan(@runtime_start.to_s))
+    logger.info "Processing by #{Colors.yellow(processed_by)}"
+    logger.info "  Parameters: #{Colors.yellow(parameters)}"
+    logger.info "  Headers: #{Colors.yellow(headers)}" if @options[:headers]
   end
 
   def after(status)
-    logger.info "Completed #{status}: total=#{total_runtime}ms - db=#{self.class.total_db_runtime}ms"
+    logger.info Colors.blue("Completed #{status}: total=#{total_runtime}ms - db=#{self.class.total_db_runtime}ms")
     logger.info ''
   end
 
   private
 
   def after_failure(status:, response:)
-    logger.info "  Failing with #{status} (#{response.fetch(:message, response || '<NO MESSAGE>')})" 
+    logger.info Colors.yellow("  Failing with #{status} (#{response.fetch(:message, response || '<NO MESSAGE>')})")
     after(status)
   end
 
