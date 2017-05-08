@@ -1,6 +1,8 @@
 require 'logger'
 require 'grape'
 
+require_relative 'logger/colors'
+
 class Grape::Middleware::Logger < Grape::Middleware::Globals
   BACKSLASH = '/'.freeze
   DEFAULT_FILTER = Class.new { def filter(h); h; end }.freeze
@@ -69,7 +71,7 @@ class Grape::Middleware::Logger < Grape::Middleware::Globals
 
     super
     logger.info ''
-    logger.info format("Started %<method>s '%<path>s' at %<time>s", method: env[Grape::Env::GRAPE_REQUEST].request_method,
+    logger.info format("Started %<method>s '%<path>s' at %<time>s", method: Colors.green(env[Grape::Env::GRAPE_REQUEST].request_method),
                                                                     path: env[Grape::Env::GRAPE_REQUEST].path,
                                                                     time: @runtime_start.to_s)
     logger.info "Processing by #{processed_by}"
