@@ -1,7 +1,7 @@
 module Colors
   extend self
 
-  ESCAPE = '\033['
+  ESCAPE = '\e['
   RESET = '0m'
   CODES = {
     red: '31m',
