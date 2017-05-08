@@ -112,7 +112,7 @@ class Grape::Middleware::Logger < Grape::Middleware::Globals
   end
 
   def total_runtime
-    ((Time.now - start_time) * 1_000).round(2)
+    ((Time.now - @runtime_start) * 1_000).round(2)
   end
 
   def processed_by
