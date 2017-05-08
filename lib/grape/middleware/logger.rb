@@ -15,6 +15,26 @@ class Grape::Middleware::Logger < Grape::Middleware::Globals
       default.formatter = ->(*args) { args.last.to_s << "\n".freeze }
       default
     end
+
+    def db_runtime=(value)
+      Thread.current[:grape_db_runtime] = value
+    end
+
+    def db_runtime
+      Thread.current[:grape_db_runtime] ||= 0
+    end
+
+    def reset_db_runtime
+      self.db_runtime = 0
+    end
+
+    def append_db_runtime(event)
+      self.db_runtime += event.duration
+    end
+
+    def total_db_runtime
+      self.db_runtime.round(2)
+    end
   end
 
   ActiveSupport::Notifications.subscribe('sql.active_record') do |*args|
@@ -58,7 +78,7 @@ class Grape::Middleware::Logger < Grape::Middleware::Globals
   end
 
   def after(status)
-    logger.info "Completed #{status}: total=#{total_runtime}ms - db=#{@db_runtime}ms"
+    logger.info "Completed #{status}: total=#{total_runtime}ms - db=#{self.class.total_db_runtime}ms"
     logger.info ''
   end
 
@@ -88,19 +108,11 @@ class Grape::Middleware::Logger < Grape::Middleware::Globals
 
   def start_timings
     @runtime_start = Time.now
-    @db_runtime = 0
-  end
-
-  def append_db_runtime(event)
-    @db_runtime += event.duration
+    self.class.reset_db_runtime
   end
 
   def total_runtime
     ((Time.now - start_time) * 1_000).round(2)
-  end
-
-  def total_db_runtime
-    @db_runtime.round(2)
   end
 
   def processed_by
