@@ -54,8 +54,15 @@ class Grape::Middleware::Logger < Grape::Middleware::Globals
 
     before
     
-    grape_error = catch(:error) { @app_response = @app.call(@env) }
+    grape_error = catch(:error) do
+      begin
+        @app_response = @app.call(@env)
+      rescue => e
+        raise e
+      end
+    end
 
+    logger.info @app_response
     logger.info grape_error
 
     if grape_error
