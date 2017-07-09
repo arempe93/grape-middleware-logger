@@ -4,6 +4,7 @@ module Colors
   ESCAPE = "\e["
   RESET = '0m'
   CODES = {
+    black: '30m',
     red: '31m',
     green: '32m',
     yellow: '33m',

@@ -54,7 +54,8 @@ class Grape::Middleware::Logger < Grape::Middleware::Globals
 
   def call!(env)
     if logger.respond_to?(:tagged)
-      logger.tagged("req_#{SecureRandom.hex}") { perform_call(env) }
+      request_id = "req_#{SecureRandom.hex(4)}"
+      logger.tagged(Colors.black(request_id)) { perform_call(env) }
     else
       perform_call(env)
     end
