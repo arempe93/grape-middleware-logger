@@ -14,8 +14,10 @@ module Colors
   }
 
   CODES.each do |color, code|
-    define_method(color) do |string|
-      "#{ESCAPE}#{code}#{string}#{ESCAPE}#{RESET}"
+    define_method(color) do |string, bold: false|
+      attributes = code
+      attributes << ';1' if bold
+      "#{ESCAPE}#{attributes}#{string}#{ESCAPE}#{RESET}"
     end
   end
 end

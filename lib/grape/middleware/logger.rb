@@ -84,7 +84,7 @@ class Grape::Middleware::Logger < Grape::Middleware::Globals
     logger.info format("Started %<method>s '%<path>s' at %<time>s", method: Colors.green(env[Grape::Env::GRAPE_REQUEST].request_method),
                                                                     path: Colors.blue(env[Grape::Env::GRAPE_REQUEST].path),
                                                                     time: Colors.cyan(@runtime_start.to_s))
-    logger.info "Processing by #{Colors.red(processed_by)}"
+    logger.info "Processing by #{Colors.red(processed_by, bold: true)}"
     logger.info "  Parameters: #{Colors.yellow(parameters)}"
     logger.info "  Headers: #{Colors.yellow(headers)}" if @options[:headers]
   end
