@@ -1,4 +1,5 @@
 require 'logger'
+require 'securerandom'
 require 'grape'
 
 require_relative 'logger/colors'
@@ -52,6 +53,14 @@ class Grape::Middleware::Logger < Grape::Middleware::Globals
   end
 
   def call!(env)
+    if logger.respond_to?(:tagged)
+      logger.tagged("req_#{SecureRandom.hex}") { perform_call(env) }
+    else
+      perform_call(env)
+    end
+  end
+
+  def perform_call(env)
     @env = env
 
     before
