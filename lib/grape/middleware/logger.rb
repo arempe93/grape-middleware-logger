@@ -97,7 +97,7 @@ class Grape::Middleware::Logger < Grape::Middleware::Globals
   private
 
   def after_failure(status:, response:)
-    message = response ? response.fetch(:message, '<NO MESSAGE>') : <NIL RESPONSE>
+    message = response ? response.fetch(:message, '<NO MESSAGE>') : '<NIL RESPONSE>'
     logger.info Colors.yellow("  Failing with #{status} (#{message})")
     after(status)
   end
